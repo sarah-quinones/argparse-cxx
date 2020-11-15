@@ -11,6 +11,7 @@
 #define ARGPARSE_CXX_ARGPARSE_HPP_ZI0LXA5GS
 
 #include <cstdint>
+#include <cstddef>
 #include <type_traits>
 #include <function_ref.hpp>
 #include <iosfwd>
@@ -70,28 +71,29 @@ template <>
 struct enable_if<false> {};
 
 template <typename T>
-using is_supported = typename enable_if<          //
-    std::is_same<char const*, T>::value ||        //
-    std::is_same<ternary, T>::value ||            //
-    std::is_same<bool, T>::value ||               //
-                                                  //
-    std::is_same<char, T>::value ||               //
-                                                  //
-    std::is_same<char signed, T>::value ||        //
-    std::is_same<short signed, T>::value ||       //
-    std::is_same<int signed, T>::value ||         //
-    std::is_same<long signed, T>::value ||        //
-    std::is_same<long long signed, T>::value ||   //
-                                                  //
-    std::is_same<char unsigned, T>::value ||      //
-    std::is_same<short unsigned, T>::value ||     //
-    std::is_same<int unsigned, T>::value ||       //
-    std::is_same<long unsigned, T>::value ||      //
-    std::is_same<long long unsigned, T>::value || //
-                                                  //
-    std::is_same<float, T>::value ||              //
-    std::is_same<double, T>::value ||             //
-    std::is_same<long double, T>::value           //
+using is_supported = typename enable_if<           //
+    std::is_same<std::nullptr_t, T>::value ||      //
+    std::is_same<char const**, T>::value ||        //
+    std::is_same<ternary*, T>::value ||            //
+    std::is_same<bool*, T>::value ||               //
+                                                   //
+    std::is_same<char*, T>::value ||               //
+                                                   //
+    std::is_same<char signed*, T>::value ||        //
+    std::is_same<short signed*, T>::value ||       //
+    std::is_same<int signed*, T>::value ||         //
+    std::is_same<long signed*, T>::value ||        //
+    std::is_same<long long signed*, T>::value ||   //
+                                                   //
+    std::is_same<char unsigned*, T>::value ||      //
+    std::is_same<short unsigned*, T>::value ||     //
+    std::is_same<int unsigned*, T>::value ||       //
+    std::is_same<long unsigned*, T>::value ||      //
+    std::is_same<long long unsigned*, T>::value || //
+                                                   //
+    std::is_same<float*, T>::value ||              //
+    std::is_same<double*, T>::value ||             //
+    std::is_same<long double*, T>::value           //
     >::type;
 
 enum struct argparse_option_type {
@@ -121,6 +123,12 @@ enum struct argparse_option_type {
 };
 template <typename T>
 struct to_option_type {};
+
+template <>
+struct to_option_type<std::nullptr_t> {
+  static constexpr _argparse::argparse_option_type value =
+      _argparse::argparse_option_type::ARGPARSE_OPT_BOOLEAN; // unused
+};
 
 template <>
 struct to_option_type<char> {
@@ -272,15 +280,16 @@ struct argparse_option : _argparse::layout {
 
   template <typename T, _argparse::is_supported<T>* = nullptr>
   constexpr argparse_option(
-      T& value_ref,
+      T value_ptr,
       char const* long_name,
       char const* help = "",
       argparse_callback callback = {}) noexcept
       : argparse_option{{
-            _argparse::to_option_type<T>::value,
+            _argparse::to_option_type<
+                typename std::remove_pointer<T>::type>::value,
             '\0',
             long_name,
-            &value_ref,
+            value_ptr,
             help,
             callback,
             0,
@@ -288,16 +297,17 @@ struct argparse_option : _argparse::layout {
 
   template <typename T, _argparse::is_supported<T>* = nullptr>
   constexpr argparse_option(
-      T& value_ref,
+      T value_ptr,
       char short_name,
       char const* long_name = nullptr,
       char const* help = "",
       argparse_callback callback = {}) noexcept
       : argparse_option{{
-            _argparse::to_option_type<T>::value,
+            _argparse::to_option_type<
+                typename std::remove_pointer<T>::type>::value,
             short_name,
             long_name,
-            &value_ref,
+            value_ptr,
             help,
             callback,
             0,
@@ -309,6 +319,7 @@ struct argparse_option : _argparse::layout {
 /**
  * argpparse
  */
+
 struct argparse {
   int argc;
   char** argv;
@@ -322,80 +333,54 @@ struct argparse {
   char** out;
   int cpidx;
   char const* optvalue; // current option value
-
-  argparse(
-      int* argc,
-      char** argv,
-      argparse_option const* options,
-      std::size_t n_options,
-      char const* const* usages,
-      std::size_t n_usages,
-      char const* description = "",
-      char const* epilogue = "",
-      int flags = 0) noexcept
-      : argc(*argc),
-        argv(argv),
-        options(options),
-        argparse_options_len(n_options),
-        usages(usages),
-        usages_len(n_usages),
-        flags(flags),
-        description(description),
-        epilogue(epilogue),
-        out{},
-        cpidx{},
-        optvalue{} {
-    *argc = _argparse::argparse_parse(this, *argc, argv);
-  }
-
-  template <std::size_t n_options, std::size_t n_usages>
-  argparse(
-      int* argc,
-      char** argv,
-      argparse_option(&&options)[n_options],
-      char const*(&&usages)[n_usages],
-      char const* description = "",
-      char const* epilogue = "",
-      int flags = 0) = delete;
-  template <std::size_t n_options, std::size_t n_usages>
-  argparse(
-      int* argc,
-      char** argv,
-      argparse_option const (&options)[n_options],
-      char const*(&&usages)[n_usages],
-      char const* description = "",
-      char const* epilogue = "",
-      int flags = 0) = delete;
-  template <std::size_t n_options, std::size_t n_usages>
-  argparse(
-      int* argc,
-      char** argv,
-      argparse_option(&&options)[n_options],
-      char const* const (&usages)[n_usages],
-      char const* description = "",
-      char const* epilogue = "",
-      int flags = 0) = delete;
-
-  template <std::size_t n_options, std::size_t n_usages>
-  argparse(
-      int* argc,
-      char** argv,
-      argparse_option const (&options)[n_options],
-      char const* const (&usages)[n_usages],
-      char const* description = "",
-      char const* epilogue = "",
-      int flags = 0) noexcept
-      : argparse(
-            argc,
-            argv,
-            options,
-            n_options,
-            usages,
-            n_usages,
-            description,
-            epilogue,
-            flags) {}
 };
+
+inline void parse_args(
+    int* argc,
+    char** argv,
+    argparse_option const* options,
+    std::size_t n_options,
+    char const* const* usages,
+    std::size_t n_usages,
+    char const* description = "",
+    char const* epilogue = "",
+    int flags = 0) noexcept {
+  argparse ap = {
+      *argc,
+      argv,
+      options,
+      n_options,
+      usages,
+      n_usages,
+      flags,
+      description,
+      epilogue,
+      nullptr,
+      0,
+      nullptr};
+  *argc = _argparse::argparse_parse(&ap, *argc, argv);
+}
+
+template <std::size_t n_options, std::size_t n_usages>
+void parse_args(
+    int* argc,
+    char** argv,
+    argparse_option const (&options)[n_options],
+    char const* const (&usages)[n_usages],
+    char const* description = "",
+    char const* epilogue = "",
+    int flags = 0) noexcept {
+  parse_args(
+      argc,
+      argv,
+      options,
+      n_options,
+      usages,
+      n_usages,
+      description,
+      epilogue,
+      flags);
+}
 
 // built-in callbacks
 auto argparse_help_cb(argparse* self, argparse_option const* option) -> int;

@@ -23,16 +23,23 @@ auto main(int argc, char** argv) -> int {
   veg::argparse_option options[] = {
       veg::help,
       "Basic options",
-      {a, 'c', "char"},
-      {tern, 'r', "tern"},
-      {force, 'f', "force", "force to do"},
+      {&a, 'c', "char"},
+      {nullptr,
+       'r',
+       "tern",
+       "",
+       [](veg::argparse* self, veg::argparse_option const* opt) {
+         fmt::print("{}\n", "found");
+         return 0;
+       }},
+      {&force, 'f', "force", "force to do"},
       "More options",
-      {path, 'p', "path", "path to read"},
-      {flt, "float", "num"},
-      {num, "num", "selected num"},
+      {&path, 'p', "path", "path to read"},
+      {&flt, "float", "num"},
+      {&num, "num", "selected num"},
   };
 
-  veg::argparse argparse(
+  veg::parse_args(
       &argc, argv, options, usage, "description", "more description");
 
   fmt::print(
